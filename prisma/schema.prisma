@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AlertType {
+  PACKAGE
+  EMERGENCY
+}
+
+model Owner {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  createdAt DateTime @default(now())
+  tags      Tag[]
+}
+
+model OtpChallenge {
+  id        String   @id @default(cuid())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+model Tag {
+  id            String       @id @default(cuid())
+  ownerId       String
+  owner         Owner        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  label         String
+  tokenHash     String       @unique
+  tokenEnc      String? // AES-GCM encrypted token so owners can re-view the QR
+  publicMessage String       @default("")
+  active        Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  contacts      Contact[]
+  alerts        AlertEvent[]
+}
+
+model Contact {
+  id       String @id @default(cuid())
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  name     String
+  phone    String
+  priority Int    @default(0)
+}
+
+model AlertEvent {
+  id         String    @id @default(cuid())
+  tagId      String
+  tag        Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  type       AlertType
+  note       String    @default("")
+  ipHash     String
+  createdAt  DateTime  @default(now())
+  deliveries Json      @default("[]")
+
+  @@index([tagId, type, createdAt])
+  @@index([ipHash, createdAt])
+}
